@@ -4,11 +4,10 @@ project(saper C)
 set(CMAKE_C_STANDARD 23)
 
 add_executable(saper
-
-        functions.h
         main.c
+        functions.h
         functions.c
-        mineswepeer_struct.h
-
-
+        minesweeper_struct.h
+        data_centre.c
+        data_centre.h
 )

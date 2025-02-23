@@ -1,24 +1,18 @@
 //
 // Created by intakvinta@gmail.com on 30.01.2025.
 //
-
 #include "functions.h"
 
-void manage()
-{
-    random();
-    int MODE = 1;
-    while(1)
-    {
-        logo();
-        getStart(&MODE);
-        play(MODE);
-    }
-}
 void random()
 {
     unsigned seed = time(NULL);
     srand(seed);
+}
+void initGame(Game *game)
+{
+    game->score = 0;
+    game->flag = 0;
+    game->opened = 0;
 }
 void logo()
 {
@@ -32,32 +26,131 @@ void gotoxy(short x, short y)
     COORD p = {x, y};
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), p);
 }
-
-// ----------------------------
-void getStart(int* MODE)
+void strCopy(char** firstStr, const char* secStr, int size)
 {
-    Cursor start;
-    initCursor(&start);
-    while(1)
+    if(*firstStr != NULL)
     {
-        menu();
-        gotoxy(start.x-1, start.y);
-        printf(">");
-
-        start.yt = start.y;
-        start.ch = _getch();
-        if(start.ch == 80){start.y+=2;}
-        if(start.ch == 72){start.y-=2;}
-        if(start.ch == 13)
-        {
-            if(start.y == 1){return;}
-            if(start.y == 3){info();}
-            if(start.y == 5){getMode(MODE);}
-            if(start.y == 7){exit(0);}
-        }
-        if(start.y > 7 || start.y < 1){start.y = start.yt;}
+        free(*firstStr);
+        *firstStr = NULL;
+    }
+    for(int i = 0; i < size; ++i)
+    {
+        resize(firstStr, i+1);
+        (*firstStr)[i] = secStr[i];
     }
 }
+void scanString(char **string, int *size) {
+    *string = NULL;
+    *size = 0;
+    int c;
+    int i = 0;
+    while ((c = getchar()) != '\n' && c != EOF) {
+        (*size)++;
+        char *temp = (char *)realloc(*string, sizeof(char) * (*size + 1));
+        if (temp == NULL) {
+            printf("memory cant be allocated");
+            if (*string != NULL) {
+                free(*string);
+            }
+            exit(1);
+        } else {
+            *string = temp;
+            (*string)[i] = (char)c;
+            (*string)[i+1] = '\0';
+        }
+        i++;
+    }
+    if (*string == NULL) {
+        // Если ничего не было введено, выделяем 1 байт и ставим нуль-терминатор
+        *string = (char *)malloc(sizeof(char));
+        if (*string == NULL) {
+            printf("memory cant be allocated\n");
+            exit(1);
+        }
+        (*string)[0] = '\0';
+    }
+}
+void resize(char** array, int size)
+{
+    char *temp = NULL;
+    temp = (char*)realloc(*array, sizeof(char) * (size+1));
+    if(temp == NULL){
+        printf("memory cant be allocated\n");
+        free(temp);
+        exit(1);
+    }
+    else{
+        *array = (char*)temp;
+        (*array)[size] = '\0';
+    }
+}
+int isEqual(const char* str1, const char* str2)
+{
+    if(strSize(str1) != strSize(str2)){return 0;}
+
+    for(int i = 0;i < strSize(str1); ++i)
+    {
+        if(str1[i] != str2[i]){return 0;}
+    }
+    return 1;
+}
+int strSize(const char* str)
+{
+    int i = 0;
+    while(str[i] != '\0' && str[i] != EOF){i++;}
+    return i;
+}
+// ----------------------------
+void startMenu(Game *game, User** hashTable)
+{
+    initGame(game);
+    Cursor start;
+    initCursor(&start);
+    menu();
+    while(1)
+    {
+        consoleOut(start.x-1,  start.y, 50);
+        start.yt = start.y;
+        start.ch = _getch();
+        switch(start.ch)
+        {
+            case 'w':
+            case 'W':
+                start.y-=2;
+                break;
+            case 's':
+            case 'S':
+                start.y+=2;
+                break;
+            case ENTER:
+                if(start.y == 1){return;}
+                if(start.y == 3){info();}
+                if(start.y == 5){getMode(&game->mode);menu();}
+                if(start.y == 7){leaderBoard(hashTable);system("cls");menu();}
+                if(start.y == 9){exitGame();
+                    freeHashTable(hashTable);
+                }
+                break;
+        }
+        if(start.y > 9 || start.y < 1){start.y = start.yt;}
+        consoleOut(start.xt-1,  start.yt, 0);
+    }
+}
+void consoleOut(int x, int y, int code)
+{
+    DWORD dw;
+    COORD here;
+    HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    here.X = x;
+    here.Y = y;
+
+    char c = ' ';
+    WriteConsoleOutputCharacter(hStdOut, &c, 1, here, &dw);
+    gotoxy(x, y);
+    getCell(code);
+}
+
 void menu()
 {
     system("cls");
@@ -68,25 +161,31 @@ void menu()
     gotoxy(2, 5);
     printf("modes");
     gotoxy(2, 7);
+    printf("leaderboard");
+    gotoxy(2, 9);
     printf("quit");
+    gotoxy(0, 0);
 }
-void fout(char* fileName, size_t size)
+void fOut(char* fileName, size_t size)
 {
     char buffer[size];
     FILE *fp = fopen(fileName, "r");
-    if(fp)
-    {
-        (fgets(buffer, size, fp));
+    if(fp){
+        fread(buffer,sizeof(char),size,fp);
         printf("%s", buffer);
+    }
+    else{
+        printf("file cant be opened\npush enter to continue");
     }
     fclose(fp);
 }
 void info()
 {
     system("cls");
-    fout("info.txt", 303);
+    fOut("info.txt", 303);
     printf("\nenter to open cell\nf\\F to make flag\npress enter to back");
-    while(getchar()!='\n');
+    while(getch()!=ENTER);
+    menu();
 }
 void setColor(int background, int text)
 {
@@ -96,156 +195,202 @@ void setColor(int background, int text)
 void modes(int MODE)
 {
     system("cls");
+
     gotoxy(2, 1);
-    if(MODE == 1){setColor(0, MODE);}
+    if(MODE == 1){setColor(Black, MODE);}
     printf("easy(1x score, small map)\n");
-    if(MODE == 1){setColor(0, 15);}
+    setColor(Black, White);
+
     gotoxy(2, 3);
-    if(MODE == 2){setColor(0, MODE);}
+    if(MODE == 2){setColor(Black, MODE);}
     printf("normal(2x score, medium map)\n");
-    if(MODE == 2){setColor(0, 15);}
+    setColor(Black, White);
+
     gotoxy(2, 5);
-    if(MODE == 3){setColor(0, MODE+1);}
+    if(MODE == 3){setColor(Black, MODE+1);}
     printf("hard(3x score, large map\n");
-    if(MODE == 3){setColor(0, 15);}
+    setColor(Black, White);
+
     gotoxy(2, 7);
     printf("quit");
 }
-void initMap(Map* map, int MODE)
+void exitGame()
 {
-    (*map).MODE = MODE;
-    (*map).flag = 0;
-    (*map).opened = 0;
-    (*map).size = MODE * 7;
-    (*map).array = (int**)malloc((*map).size * sizeof(int*));
-    (*map).mask = (int**)malloc((*map).size * sizeof(int*));
-    if((*map).array == NULL || (*map).mask == NULL){printf("memory cant be allocated");}
+    system("cls");
+    printf(":(");
+    Sleep(2000);
+    exit(0);
+}
+void initMap(Map* map, Game game)
+{
+    map->size = game.mode * 7;
+    map->array = (int**)malloc(map->size * sizeof(int*));
+    map->mask = (int**)malloc(map->size * sizeof(int*));
+    if(map->array == NULL || map->mask == NULL){
+        printf("memory cant be allocated");
+        exitGame();
+    }
     createMap(map);
-
-    showMap(*map);
+    showMap(*map, game);
 }
 void initCursor(Cursor* cursor)
 {
-    (*cursor).x = 1;
-    (*cursor).y = 1;
-    (*cursor).xt = 1;
-    (*cursor).yt = 1;
-    gotoxy((*cursor).x<<1, (*cursor).y);
+    cursor->x = 1;
+    cursor->y = 1;
+    cursor->xt = 1;
+    cursor->yt = 1;
+    gotoxy(cursor->x * 2, cursor->y);
 }
 
 void freeMap(Map* map)
 {
-    for(int i = 0;i < (*map).size; ++i)
+    for(int i = 0;i < map->size; ++i)
     {
-        free((*map).array[i]);
-        free((*map).mask[i]);
+        free(map->array[i]);
+        free(map->mask[i]);
     }
-    free((*map).array);
-    free((*map).mask);
-    (*map).size = 0;
+    free(map->array);
+    free(map->mask);
+    map->size = 0;
 }
 void createMap(Map* map)
 {
-    for(int i = 0;i < (*map).size;++i)
+    for(int i = 0;i < map->size;++i)
     {
-        (*map).array[i] = (int*)malloc((*map).size * sizeof(int));
-        (*map).mask[i] = (int*)calloc((*map).size, sizeof(int));
-        for(int j = 0;j < (*map).size;++j)
+        map->array[i] = (int*)malloc(map->size * sizeof(int));
+        map->mask[i] = (int*)calloc(map->size, sizeof(int));
+        if(map->array[i] == NULL || map->mask[i] == NULL){
+            printf("memory cant be allocated");
+            exitGame();
+        }
+        for(int j = 0;j < map->size;++j)
         {
-            if(i == 0 || j == 0 || i == (*map).size-1 || j == (*map).size-1)
-                (*map).array[i][j] = BORDER;
+            if(i == 0 || j == 0 || i == map->size-1 || j == map->size-1)
+                  map->array[i][j] = BORDER;
             else
-                (*map).array[i][j] = EMPTY;
+                  map->array[i][j] = EMPTY;
         }
     }
 }
-void coutChar(char output, int color)
+void coutStr(char* output, int color)
 {
-    setColor(0, color);
-    printf("%c ", output);
-    setColor(0, 15);
+    setColor(Black, color);
+    printf("%s ", output);
+    setColor(Black, White);
 }
 void coutInt(int output, int color)
 {
-    setColor(0, color);
+    setColor(Black, color);
     printf("%d ", output);
-    setColor(0, 15);
+    setColor(Black, White);
 }
-void showMap(Map map)
+void getCell(int cell)
+{
+    if(cell == BORDER)
+        coutStr("#", Magenta);
+
+    else if(cell == EMPTY)
+        printf("  ");
+
+    else if(cell == MINE)
+        coutStr("*", White);
+
+    else if(cell == 1)
+        coutInt(1, Blue);
+
+    else if(cell == 2)
+        coutInt(2, Cyan);
+
+    else if(cell == 3)
+        coutInt(3, Brown);
+
+    else if(cell == 4)
+        coutInt(4, LightRed);
+
+    else if(cell == 5)
+        coutInt(5, Red);
+
+    else if(cell == 50)
+        coutStr(">", Red);
+
+    else if(cell == 51)
+        coutStr("F", Green);
+
+    else if(cell == 21)
+        coutStr(".", White);
+    else
+        coutInt(cell, White);
+}
+void showMap(Map map, Game game)
 {
     system("cls");
     for(int i = 0;i < map.size;++i)
     {
         for(int j = 0;j < map.size;++j)
         {
-            if(map.array[i][j] == BORDER)
-                coutChar('#', 5);
-
-            else if(map.mask[i][j] == EMPTY)
-                coutChar('.', 15);
-
-            else if(map.mask[i][j] == FLAG)
-                coutChar('F', 10);
-
-            else if(map.array[i][j] == EMPTY)
-                printf("  ");
-
-            else if(map.array[i][j] == MINE)
-                coutChar('*', 15);
-
-            else if(map.array[i][j] == 1)
-                coutInt(map.array[i][j], 1);
-
-            else if(map.array[i][j] == 2)
-                coutInt(map.array[i][j], 3);
-
-            else if(map.array[i][j] == 3)
-                coutInt(map.array[i][j], 6);
-
-            else if(map.array[i][j] == 4)
-                coutInt(map.array[i][j], 4);
-
-            else
-                coutInt(map.array[i][j], 15);
+            if(map.array[i][j] != BORDER)
+            {
+                if(map.mask[i][j] == EMPTY)
+                    coutStr(".", White);
+                else if(map.mask[i][j] == FLAG)
+                    coutStr("F", 10);
+            }
+            else getCell(map.array[i][j]);
         }
         printf("\n");
     }
-    gotoxy(map.size<<1, 2);
-    printf("MINES:%d", map.MODE * map.MODE * map.MODE * 4 - map.flag);
-    gotoxy(map.size<<1, 4);
-    printf("SCORE:%d", map.opened * map.MODE * 50);
+    showStats(map.size, game);
 }
+void showStats(int size, Game game)
+{
+    gotoxy(size<<1, 2);
+    int numberOfMines = game.mode * game.mode * game.mode * 4;
+    if(numberOfMines - game.flag < 10){printf("MINES:00%d", game.mode * game.mode * game.mode * 4 - game.flag);}
+    else if(numberOfMines - game.flag < 100){printf("MINES:0%d", game.mode * game.mode * game.mode * 4 - game.flag);}
+    else{printf("MINES:%d", numberOfMines - game.flag);}
 
-
+    gotoxy(size<<1, 4);
+    game.score = game.opened * game.mode * 50;
+    printf("SCORE:%d", game.score);
+}
 void getMode(int* MODE)
 {
     Cursor mode;
     initCursor(&mode);
+    modes(*MODE);
     while(1)
     {
-        modes(*MODE);
-        gotoxy(mode.x-1, mode.y);
-        printf(">");
-
+        consoleOut(mode.x-1, mode.y, 50);
+        int oldMode = *MODE;
         mode.yt = mode.y;
         mode.ch = _getch();
-        if(mode.ch == 80){mode.y+=2;}
-        if(mode.ch == 72){mode.y-=2;}
-        if(mode.ch == 13)
+        switch(mode.ch)
         {
-            if(mode.y == 1){*MODE = 1;}
-            if(mode.y == 3){*MODE = 2;}
-            if(mode.y == 5){*MODE = 3;}
-            if(mode.y == 7){return;}
+            case 'w':
+            case 'W':
+                mode.y-=2;
+                break;
+            case 's':
+            case 'S':
+                mode.y+=2;
+                break;
+            case ENTER:
+                if(mode.y == 1){*MODE = 1;}
+                if(mode.y == 3){*MODE = 2;}
+                if(mode.y == 5){*MODE = 3;}
+                if(mode.y == 7){return;}
+                else if(oldMode!=*MODE){modes(*MODE);}
+                break;
         }
         if(mode.y > 7 || mode.y < 1){mode.y = mode.yt;}
+        consoleOut(mode.xt-1, mode.yt, 0);
     }
 }
 // ----------------
-void play(int MODE)
+void play(Game *game)
 {
     Map map;
-    initMap(&map, MODE);
+    initMap(&map, *game);
     Cursor cursor;
     initCursor(&cursor);
     while(1)
@@ -254,20 +399,28 @@ void play(int MODE)
         cursor.yt = cursor.y;
         cursor.ch = _getch();
         switch (cursor.ch) {
-            case 77: cursor.x++;break;
-            case 80: cursor.y++;break;
-            case 75: cursor.x--;break;
-            case 72: cursor.y--;break;
-            case 13: if(map.mask[cursor.y][cursor.x] != FLAG){
-                    if(!map.opened)
-                        createMines(&map, 4 * MODE * MODE * MODE, cursor);
-                    openCell(&map, cursor);
+            case 'd':
+            case 'D':
+                cursor.x++;break;
+            case 's':
+            case 'S':
+                cursor.y++;break;
+            case 'w':
+            case 'W':
+                cursor.y--;break;
+            case 'a':
+            case 'A':
+                cursor.x--;break;
+            case ENTER: if(map.mask[cursor.y][cursor.x] == EMPTY){
+                    if(!game->opened)
+                        createMines(&map, 4 * game->mode * game->mode * game->mode, cursor);
+                    openCell(&map, cursor, game);
                     if(!map.size){return;}
                 }break;
-            case 63:
-            case 102: makeFlag(&map, cursor); break;
+            case 'f':
+            case 'F':
+                makeFlag(&map, cursor, game); break;
         }
-
         if(map.array[cursor.x][cursor.y] == BORDER){
             cursor.x = cursor.xt;
             cursor.y = cursor.yt;
@@ -281,70 +434,83 @@ void createMines(Map* map, int mines, Cursor cursor)
     while(mines--)
     {
         do {
-            i = rand()%((*map).size-2) + 1, j = rand()%((*map).size-2)+1;
-        }while((*map).array[i][j] == MINE || (abs(cursor.y-i)<=1 && abs(cursor.x-j)<=1));
+            i = rand() % ((*map).size - 2) + 1;
+            j = rand() % ((*map).size - 2) + 1;
+        } while(map->array[i][j] == MINE || (abs(cursor.y-i)<=1 && abs(cursor.x-j)<=1));
 
-        (*map).array[i][j] = MINE;
+        map->array[i][j] = MINE;
         for(int ii = -1; ii <= 1; ii++)
             for(int jj = -1;jj <= 1; jj++)
-                if((*map).array[i + ii][j + jj] < MINE && (ii != 0 || jj != 0))
-                    (*map).array[i + ii][j + jj]++;
+                if(map->array[i + ii][j + jj] < MINE && (ii != 0 || jj != 0))
+                    map->array[i + ii][j + jj]++;
     }
 }
-void openCell(Map* map, Cursor cursor)
+void openCell(Map* map, Cursor cursor, Game *game)
 {
-    (*map).mask[cursor.y][cursor.x] = OPEN;
-    if((*map).array[cursor.y][cursor.x] == EMPTY)
-        openEmpty(map, cursor.x, cursor.y);
+    map->mask[cursor.y][cursor.x] = OPEN;
+    consoleOut(cursor.x<<1, cursor.y, map->array[cursor.y][cursor.x]);
+    game->opened++;
+    if(map->array[cursor.y][cursor.x] == EMPTY)
+        openEmpty(map, game, cursor.x, cursor.y);
 
-    showMap(*map);
-    int numberOfCells = ((*map).size-2)*((*map).size-2);
-    int numberOfMines = 4*(*map).MODE*(*map).MODE*(*map).MODE;
-    if((*map).array[cursor.y][cursor.x] == MINE){
-        endGame(0);
+    showStats(map->size, *game);
+    int numberOfCells = (map->size - 2) * (map->size - 2);
+    int numberOfMines = 4 * game->mode * game->mode * game->mode;
+    if(map->array[cursor.y][cursor.x] == MINE){
+        endGame(0, game);
         freeMap(map);
     }
-    else if(++(*map).opened == numberOfCells - numberOfMines){
-        endGame(1);
+    else if(game->opened >= numberOfCells - numberOfMines){
+        endGame(1, game);
         freeMap(map);
     }
 }
-void endGame(int end)
+void endGame(int end, Game *game)
 {
     gotoxy(42, 8);
+
     if(end)
+    {
         printf("Congratulations");
+        game->score = game->score = game->opened * game->mode * 50;
+    }
     else
+    {
         printf("GAME OVER!!");
+        game->score = game->score = game->opened * game->mode * 25;
+    }
+
     Sleep(2000);
 }
-void openEmpty(Map* map, int x, int y)
+void openEmpty(Map* map, Game *game, int x, int y)
 {
     for(int i = -1; i<=1; i++)
         for(int j = -1;j<=1; j++)
         {
-            if((*map).array[y+i][x+j] == EMPTY && (i!=0||j!=0) && !(*map).mask[y+i][x+j]){
-                (*map).mask[y+i][x+j] = OPEN;
-                (*map).opened++;
-                openEmpty(map,x+j, y+i);
-            }
-            if((*map).array[y+i][x+j] < MINE && (i!=0||j!=0) && !(*map).mask[y+i][x+j]){
-                (*map).mask[y+i][x+j] = OPEN;
-                (*map).opened++;
+            if((i!=0||j!=0) && map->array[y+i][x+j] < MINE && map->mask[y+i][x+j] == EMPTY) {
+                game->opened++;
+                consoleOut((x+j)<<1, y+i, map->array[y+i][x+j]);
+                map->mask[y + i][x + j] = OPEN;
+                if (map->array[y+i][x+j] == EMPTY) {
+                openEmpty(map, game, x + j, y + i);
+                }
             }
         }
 }
-void makeFlag(Map* map, Cursor cursor)
+void makeFlag(Map* map, Cursor cursor, Game *game)
 {
-    if((*map).mask[cursor.y][cursor.x] == EMPTY)
+    if(map->mask[cursor.y][cursor.x] == EMPTY)
     {
-        (*map).mask[cursor.y][cursor.x] = FLAG;
-        (*map).flag++;
+        map->mask[cursor.y][cursor.x] = FLAG;
+        game->flag++;
+
     }
-    else if((*map).mask[cursor.y][cursor.x] == FLAG)
+    else if(map->mask[cursor.y][cursor.x] == FLAG)
     {
-        (*map).mask[cursor.y][cursor.x] = EMPTY;
-        (*map).flag--;
+        map->mask[cursor.y][cursor.x] = EMPTY;
+        game->flag--;
     }
-    showMap(*map);
+    else{return;}
+    consoleOut(cursor.x<<1, cursor.y, map->mask[cursor.y][cursor.x]+21);
+    showStats(map->size, *game);
 }
