@@ -28,16 +28,24 @@ void gotoxy(short x, short y)
 }
 void strCopy(char** firstStr, const char* secStr, int size)
 {
+
     if(*firstStr != NULL)
     {
         free(*firstStr);
         *firstStr = NULL;
     }
+
     for(int i = 0; i < size; ++i)
     {
         resize(firstStr, i+1);
         (*firstStr)[i] = secStr[i];
     }
+
+}
+void coutString(char* string)
+{
+    for(int i = 0; string[i] != '\0'; ++i)
+        printf("%c", string[i]);
 }
 void scanString(char **string, int *size) {
     *string = NULL;
@@ -73,7 +81,7 @@ void scanString(char **string, int *size) {
 void resize(char** array, int size)
 {
     char *temp = NULL;
-    temp = (char*)realloc(*array, sizeof(char) * (size+1));
+    temp = (char*)realloc(*array, sizeof(temp) * (size+1));
     if(temp == NULL){
         printf("memory cant be allocated\n");
         free(temp);
@@ -101,7 +109,7 @@ int strSize(const char* str)
     return i;
 }
 // ----------------------------
-void startMenu(Game *game, User** hashTable)
+void startMenu(Game *game, Tree *board, int* isEnd)
 {
     initGame(game);
     Cursor start;
@@ -116,20 +124,27 @@ void startMenu(Game *game, User** hashTable)
         {
             case 'w':
             case 'W':
+            case 72 :
                 start.y-=2;
                 break;
             case 's':
             case 'S':
+            case 80 :
                 start.y+=2;
                 break;
             case ENTER:
                 if(start.y == 1){return;}
                 if(start.y == 3){info();}
                 if(start.y == 5){getMode(&game->mode);menu();}
-                if(start.y == 7){leaderBoard(hashTable);system("cls");menu();}
-                if(start.y == 9){exitGame();
-                    freeHashTable(hashTable);
+                if(start.y == 7){
+                    system("cls");
+                    printLeaderboard(board);
+                    printf("Press enter to continue\n");
+                    while(getch() != ENTER);
+                    system("cls");
+                    menu();
                 }
+                if(start.y == 9){*isEnd = 1; return;}
                 break;
         }
         if(start.y > 9 || start.y < 1){start.y = start.yt;}
@@ -368,10 +383,12 @@ void getMode(int* MODE)
         {
             case 'w':
             case 'W':
+            case 72 :
                 mode.y-=2;
                 break;
             case 's':
             case 'S':
+            case 80 :
                 mode.y+=2;
                 break;
             case ENTER:
@@ -401,15 +418,19 @@ void play(Game *game)
         switch (cursor.ch) {
             case 'd':
             case 'D':
+            case 77 :
                 cursor.x++;break;
             case 's':
             case 'S':
+            case  80:
                 cursor.y++;break;
             case 'w':
             case 'W':
+            case 72 :
                 cursor.y--;break;
             case 'a':
             case 'A':
+            case 75 :
                 cursor.x--;break;
             case ENTER: if(map.mask[cursor.y][cursor.x] == EMPTY){
                     if(!game->opened)

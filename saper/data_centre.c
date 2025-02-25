@@ -3,18 +3,21 @@
 //
 
 #include "data_centre.h"
-void loadHashTable(const char *filename, User* hashTable[])
+Tree* loadHashTable(const char *filename, User* hashTable[], Tree *board)
 {
+    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
+        hashTable[i] = NULL;
+    }
     FILE *fp = fopen(filename, "r+");
     if (fp == NULL) {
         printf("file is clear\n");
-        return;
+        return NULL;
     }
 
     char *username = (char*)malloc(50 * sizeof(char));
     char *password = (char*)malloc(50 * sizeof(char));
     if(username==NULL||password == NULL){printf("malloc error");exit(1);}
-    int score; // Добавлено для чтения score
+    int score;
 
     while (fscanf(fp, "%49s %49s %d\n", username, password, &score) == 3) {
 
@@ -22,15 +25,16 @@ void loadHashTable(const char *filename, User* hashTable[])
         User *newUser = (User *)malloc(sizeof(User));
         if (newUser == NULL) {
             perror("malloc failed");
-            fclose(fp); // Закрываем файл при ошибке
-            return;
+            fclose(fp);
+            return NULL;
         }
-        newUser->nameSize = strSize(username);
-        strCopy(&newUser->username, username, newUser->nameSize);
-        newUser->passSize = strSize(password);
-        strCopy(&newUser->password, password, newUser->passSize);
+
+        strCopy(&newUser->username, username, strSize(username));
+        strCopy(&newUser->password, password, strSize(password));
         newUser->score = score;
         newUser->next = NULL;
+
+        board = addNode(board, score, newUser->username);
 
         if (hashTable[index] == NULL) {
             hashTable[index] = newUser;
@@ -41,15 +45,23 @@ void loadHashTable(const char *filename, User* hashTable[])
         }
     }
     fclose(fp);
+
+    return board;
 }
-User *initUser(User* hashTable[])
+User *initUser(User* hashTable[], Tree *board)
 {
-    printf("Enter your username\n");
+    printf("\n\nEnter your username\n");
     while(1)
     {
         char* username = NULL;
         int usernameSize = 0;
-        scanString(&username, &usernameSize);
+        while(usernameSize < 5)
+        {
+            scanString(&username, &usernameSize);
+            if(usernameSize < 5)
+                printf("Username must be bigger than 4 characters! Try again\n");
+        }
+
         User *currUser = findUser(hashTable, username);
         if(currUser == NULL)
         {
@@ -59,14 +71,17 @@ User *initUser(User* hashTable[])
             if(ch == 'y'){
                 char* password = NULL;
                 int passwordSize = 0;
-
                 printf("enter password: ");
-                scanString(&password, &passwordSize);
-
+                while(passwordSize < 3) {
+                    scanString(&password, &passwordSize);
+                    if(passwordSize < 3)
+                        printf("Password must be bigger than 3 characters! Try again\n");
+                }
                 if(!addUser(hashTable, username, usernameSize, password, passwordSize)){
                     printf("ERROR");
                     exitGame();
                 }
+                addNode(board, 0, username);
                 printf("Your account successfully created\n");
                 Sleep(2000);
                 return findUser(hashTable, username);
@@ -78,18 +93,17 @@ User *initUser(User* hashTable[])
         else{
             printf("enter password or leave!!\n");
             int attempts = 3;
-            while(attempts>0)
+            while(attempts-->0)
             {
                 char* password;
                 int passwordSize;
                 scanString(&password, &passwordSize);
                 if(isEqual(currUser->password, password)){
                     printf("You successfully logged in\n");
+                    Sleep(2000);
                     return currUser;
                 }
-                else{
-                    printf("try again!! %d attempts left\n", attempts--);
-                }
+                    printf("try again!! %d attempts left\n", attempts);
             }
             printf("ooops, try to log in another time!\n");
         }
@@ -103,7 +117,7 @@ unsigned long hash(const char *str)
     int c;
 
     while ((c = (int)*str++))
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+        hash = ((hash << 5) + hash) + c; // hash * 33 + c
 
     return hash % HASH_TABLE_SIZE;
 }
@@ -113,17 +127,13 @@ int addUser(User *hashTable[], const char *username, int usernameSize, const cha
 {
     unsigned long index = hash(username);
 
-
     User *newUser = (User *)malloc(sizeof(User));
     if (newUser == NULL) {
         perror("malloc failed");
         return 0;
     }
-
-    newUser->nameSize = usernameSize;
-    strCopy(&newUser->username, username, newUser->nameSize);
-    newUser->passSize = passwordSize;
-    strCopy(&newUser->password, password, newUser->passSize);
+    strCopy(&newUser->username, username, usernameSize);
+    strCopy(&newUser->password, password, passwordSize);
     newUser->score = 0;
     newUser->next = NULL;
 
@@ -133,7 +143,7 @@ int addUser(User *hashTable[], const char *username, int usernameSize, const cha
         newUser->next = hashTable[index];
         hashTable[index] = newUser;
     }
-    FILE *f = fopen("userinfo.txt", "r+");
+    FILE *f = fopen("userinfo.txt", "a+");
     if(f == NULL)
     {
         printf("cant open file\n");
@@ -158,27 +168,13 @@ User *findUser(User **hashTable, const char *username)
 
     while (currentUser != NULL) {
         if (isEqual(currentUser->username, username)) {
-            return currentUser; // Пользователь найден
+            return currentUser;
         }
         currentUser = currentUser->next;
     }
-
     return NULL;
 }
-void leaderBoard(User* hashTable[])
-{
-    system("cls");
-    printf("Scores of all users:\n");
-    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
-        User *currUser = hashTable[i];
-        while (currUser != NULL) {
-            printf("Username: %s, Score: %d\n", currUser->username, currUser->score);
-            currUser = currUser->next;
-        }
-    }
-    printf("print enter to continue\n");
-    while(getch()!=ENTER);
-}
+
 int changeUserScore(User *hashTable[], const char *username, int newScore)
 {
     User *userToUpdate = findUser(hashTable, username);
@@ -186,7 +182,7 @@ int changeUserScore(User *hashTable[], const char *username, int newScore)
     if (userToUpdate != NULL) {
         userToUpdate->score = newScore;
 
-        FILE *f = fopen("userinfo.txt", "r+"); // Открываем для *перезаписи*
+        FILE *f = fopen("userinfo.txt", "r+");
         if (f == NULL) {
             perror("Cant open file");
             return 0;
@@ -201,10 +197,10 @@ int changeUserScore(User *hashTable[], const char *username, int newScore)
         }
 
         fclose(f);
-        return 1; // Успешно
+        return 1;
     } else {
         printf("User %s not found.\n", username);
-        return 0; // Пользователь не найден
+        return 0;
     }
 }
 void freeHashTable(User *hashTable[])
@@ -218,4 +214,62 @@ void freeHashTable(User *hashTable[])
         }
         hashTable[i] = NULL;
     }
+}
+void printLeaderboard(Tree *board)
+{
+     if(board != NULL){
+         printLeaderboard(board->left);
+         coutString(board->name);
+         printf(": %d\n", board->points);
+         printLeaderboard(board->right);
+     }
+}
+Tree *addNode(Tree *board, int score, char* name)
+{
+     if(board == NULL)
+     {
+         board = (Tree*)malloc(sizeof(Tree));
+         if(board == NULL)
+         {
+             printf("tree is trash\n");
+             exit(1);
+         }
+         board->left = NULL;
+         board->right = NULL;
+         board->points = score;
+         strCopy(&board->name, name, strSize(name));
+     }
+     else{
+         if(score  >  board->points){
+             board->left = addNode(board->left, score, name);
+         }
+         else{
+             board->right = addNode(board->right, score, name);
+         }
+     }
+
+     return board;
+}
+void changeNode(Tree *board, char *name, int score)
+{
+    if(board != NULL)
+    {
+        if(isEqual(board->name, name) == 1){
+            board->points = score;
+            return;
+        }
+        else{
+            changeNode(board->left, name, score);
+            changeNode(board->right, name, score);
+        }
+    }
+}
+void freeTree(Tree *board)
+{
+        if (board != NULL)
+        {
+            freeTree(board->left);
+            freeTree(board->right);
+            free(board);
+        }
 }

@@ -7,6 +7,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <windows.h>
 #include <conio.h>
 #include <time.h>
@@ -47,11 +48,12 @@ void gotoxy(short x, short y);
 void logo();
 void resize(char** array, int size);
 void scanString(char **string, int *size);
+void coutString(char* string);
 int strSize(const char* str);
 int isEqual(const char* str1, const char* str2);
 void strCopy(char** firstStr, const char* secStr, int size);
 //-------------
-void startMenu(Game *game, User **hashTable);
+void startMenu(Game *game, Tree *board, int* isEnd);
 void menu();
 void fOut(char* fileName, size_t size);
 void info();

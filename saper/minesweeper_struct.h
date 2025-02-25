@@ -25,10 +25,14 @@ typedef struct {
 }Cursor;
 typedef struct User {
     char *username;
-    int nameSize;
     char *password;
-    int passSize;
     int score;
     struct User *next;
 } User;
+typedef struct Tree{
+    int points;
+    char *name;
+    struct Tree *left;
+    struct Tree *right;
+}Tree;
 #endif //SAPER_MINESWEEPER_STRUCT_H
